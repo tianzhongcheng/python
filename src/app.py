@@ -53,56 +53,123 @@ def getPage(url):
         '''
         return info.replace(rule,'').strip()
         for index,t in enumerate(mContnent):
-            if t.startswith('@译    名'):
+            if t.startswith('◎译    名'):
                 moveInfo['translation'] = name
-            elif t.startswith('@片  名'):
-                name = pares_info(t,'@片    名')
+            elif t.startswith('◎片  名'):
+                name = pares_info(t,'◎片    名')
                 moveInfo['movie_title'] = name
-            elif t.startswith('@年代'):
-                name = pares_info(t,'@年代')
+            elif t.startswith('◎年代'):
+                name = pares_info(t,'◎年代')
                 moveInfo['movie_age'] = name
-            elif t.startswith('@产地'):
-                name = pares_info(t,'@产地')
+            elif t.startswith('◎产地'):
+                name = pares_info(t,'◎产地')
                 moveInfo['movie_place'] = name
-            elif t.startswith('@类别'):
-                name = pares_info(t,'@类别')
+            elif t.startswith('◎类别'):
+                name = pares_info(t,'◎类别')
                 moveInfo['category'] = name
-            elif t.startswith('@语言'):
-                name = pares_info(t,'@语言')
+            elif t.startswith('◎语言'):
+                name = pares_info(t,'◎语言')
                 moveInfo['language'] = name
-            elif t.startswith('@字幕'):
-                name = pares_info(t,'@字幕')
+            elif t.startswith('◎字幕'):
+                name = pares_info(t,'◎字幕')
                 moveInfo['subtitle'] = name
-            elif t.startswith('@上映日期'):
-                name = pares_info(t,'@上映日期')
+            elif t.startswith('◎上映日期'):
+                name = pares_info(t,'◎上映日期')
                 moveInfo['release_date'] = name
-            elif t.startswith('@豆瓣评分'):
-                name = pares_info(t,'@豆瓣评分')
+            elif t.startswith('◎豆瓣评分'):
+                name = pares_info(t,'◎豆瓣评分')
                 moveInfo['douban_score'] = name
-            elif t.startswith('@时长'):
-                name = pares_info(t,'@时长')
+            elif t.startswith('◎时长'):
+                name = pares_info(t,'◎时长')
                 moveInfo['file_length'] = name
-            elif t.startswith('@导演'):
-                name = pares_info(t,'@导演')
+            elif t.startswith('◎导演'):
+                name = pares_info(t,'◎导演')
                 moveInfo['director'] = name
-            elif t.startswith('@编剧'):
-                name = pares_info(t,'@编剧')
+            elif t.startswith('◎编剧'):
+                name = pares_info(t,'◎编剧')
                 writers = [name]
                 for i in range(index + 1,len(mContnent)):
                     writer = mContnent[i].stript()
-                    if writer.staetswith('@'):
+                    if writer.staetswith('◎'):
                         break
                     writers.append(writer)
                 moveInfo['screenwriter'] = writers
-            elif t.startswith('@主演'):
-                name = pares_info(t,'@主演')
-                moveInfo['movie_age'] = name
-            elif t.startswith('@标签'):
-                name = pares_info(t,'@标签')
-                moveInfo['movie_age'] = name
-            elif t.startswith('@简介'):
-                name = pares_info(t,'@简介')
-                moveInfo['movie_age'] = name
-            elif t.startswith('@获奖情况'):
-                name = pares_info(t,'@获奖情况')
-                moveInfo['movie_age'] = name
+            elif t.startswith('◎主演'):
+                name = pares_info(t,'◎主演')
+                actor = [name]
+                for i in range(index + 1,len(mContnent)):
+                    actor = mContnent[i].stript()
+                    if actor.startswith('◎'):
+                        break
+                    actor.append(actor)
+                moveInfo['stars'] = "".join(actor)
+            elif t.startswith('◎标签'):
+                name = pares_info(t,'◎标签')
+                moveInfo['tags'] = name
+            elif t.startswith('◎简介'):
+                name = pares_info(t,'◎简介')
+                prfiles = []
+                for i in range(index + 1,len(mContnent)):
+                    profile = mContnent[i].stript()
+                    if profile.startswith('◎获奖情况') or '【下载地址】' in profile:
+                        break
+                    profile.append(profile)
+                moveInfo['introduction'] = " ".join(profile)
+            elif t.startswith('◎获奖情况'):
+                name = pares_info(t,'◎获奖情况')
+                awards = []
+                for i in range(index + 1,len(mContnent)):
+                    awards = mContnent[i].strip()
+                    if '【下载地址】'in award:
+                        break
+                    awards.append(award)
+                moveInfo['awards'] = " ".join(awards)
+        moveInfo['movie_url'] = url
+        return moveInfo
+    
+#获取前n页中所有电影的详情页href
+def spider():
+    #链接数据库
+    base_url = 'https://www.dy2018.com/html/gndy/dyzz/index_{}.html'
+    moves = []
+    m = int(input('请输入您要获取的开始页：'))
+    n = int(input('请输入您要获取的结束页：'))
+    print('即将写入第{}页到第{}页的电影信息，请稍后...'.format(m, n))
+    for i in range(m,n+1):
+        print('******* 第{}页电影 正在写入 ********'.format(i))
+        if i == 1:
+            url = "https://www.dy2018.com/html/gndy/dyzz/"
+        else:
+            url = base_url.format(i)
+        moveHref = getHref(url)
+        print("休息2s后再进行操作")
+        time.sleep(2)
+        for index,mhref in enumerate(moveHref):
+            print('---- 正在处理第{}部电影----'.format(index+1))
+            move = getPage(mhref)
+            moves.append(move)
+    # 将电影信息写入数据库
+    db = pymysql.connect(host='127.0.0.1',user='root', password='123456', port=3306, db='你的数据库名称')
+    table = 'movies'
+    i = 1
+    for data in moves:
+        keys = ', '.join(data.keys())
+        values = ', '.join(['%s'] * len(data))
+        sql = 'INSERT INTO {table}(id,{keys}) VALUES (null,{values})'.format(table=table, keys=keys, values=values)
+        try:
+            cursor = db.cursor()
+            cursor.execute(sql, tuple(data.values()))
+            print('本条数据成功执行!')
+            if i%10==0:
+                db.commit()
+        except Exception as e:
+            print('将电影信息写入数据库发生异常!',repr(e))
+            db.rollback()
+        cursor.close()
+        i = i + 1
+    db.commit()
+    db.close()
+    print('写入数据库完成！')
+
+if __name__ == '__main__':
+    spider()
